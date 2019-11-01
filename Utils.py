@@ -8,16 +8,25 @@ from com.pnfsoftware.jeb.core import RuntimeProjectUtil
 class Helper:
     def __init__(self, project):
         self.prj = project
-        self.exported_receivers = None
+        self.exported = {} 
     
     def isReceiverExported(self, receiver):
-        if not self.exported_receivers:
-            self.exported_receivers = self.getExportedReceivers()
+        if 'receiver' not in self.exported:
+            self.exported['receiver'] = self.getExportedReceivers()
 
-        return self.getClassPath(receiver) in self.exported_receivers
+        return self.getClassPath(receiver) in self.exported['receiver']
 
     def getExportedReceivers(self):
         return self.getComponentNames('receiver', True)
+    
+    def isServiceExported(self, service):
+        if 'service' not in self.exported:
+            self.exported['service'] = self.getExportedServices()
+
+        return self.getClassPath(service) in self.exported['service']
+
+    def getExportedServices(self):
+        return self.getComponentNames('service', True)
 
     def getComponentNames(self, compType, exported):
         comps = self.getComponent(compType)
