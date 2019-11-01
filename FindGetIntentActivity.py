@@ -3,6 +3,7 @@ from com.pnfsoftware.jeb.core import RuntimeProjectUtil
 from com.pnfsoftware.jeb.core.actions import Actions, ActionContext, ActionXrefsData
 from com.pnfsoftware.jeb.core.units.code import ICodeUnit, ICodeItem
 from com.pnfsoftware.jeb.core.units import IXmlUnit
+from com.pnfsoftware.jeb.core.actions import ActionRenameData
 
 # Find in exported activities or not
 config_find_exported = False
@@ -47,9 +48,19 @@ class FindGetIntentActivity(IScript):
         classes = filter(activity_filter, classes)
         
         for cls in classes:
-            for m in self.findGetIntent(cls):
-                print(m.getSignature(True))
+            
+            calls = self.findGetIntent(cls)
+            if calls:
+                for f in cls.getFields():
+                    fieldType = f.getFieldType().getName(True)
+                    if 'webview' in fieldType.lower():
+                        print(fieldType.center(len(fieldType) + 10, ' ').center(60, '-'))
+                        self.append_type(f, fieldType)
 
+                for call in calls:
+                    print(call.getSignature(True))
+
+    
     def getClassPath(self, cls):
         sign = cls.getSignature(True)
         path = sign[1:-1]
@@ -148,3 +159,29 @@ class FindGetIntentActivity(IScript):
         if unit.prepareExecution(ActionContext(unit, Actions.QUERY_XREFS, itemId, None), data):
             # clean up the DEX address, extrac the method name
             return data.getAddresses()
+    
+    def append_type(self, obj, otype):
+        if not obj.getName(True).endswith(otype):
+            new_name = obj.getName(True) + '_' + otype
+            self.rename(obj, new_name)
+
+    def rename(self, obj, new_name):
+        actCntx = ActionContext(self.codeUnit, Actions.RENAME, obj.getItemId(), obj.getAddress())
+        actData = ActionRenameData()
+        actData.setNewName(new_name)
+
+        if self.codeUnit.prepareExecution(actCntx, actData):
+            try:
+                res = self.codeUnit.executeAction(actCntx, actData)
+                if not res:
+                    print(u'rename failed [new_name %s]' % new_name)
+                    return False
+
+                else:
+                    return True
+
+            except Exception,e:
+                print(e)
+                return False
+        else:
+            return False
