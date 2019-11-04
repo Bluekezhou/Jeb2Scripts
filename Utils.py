@@ -4,33 +4,70 @@
 from com.pnfsoftware.jeb.core import RuntimeProjectUtil
 from com.pnfsoftware.jeb.core.units.code import ICodeUnit
 from com.pnfsoftware.jeb.core.units import IXmlUnit
+import re
 
 
 class Helper:
+    COMPONENT_ACTIVITY = 0
+    COMPONENT_SERVICE = 1
+    COMPONENT_PROVIDER = 2
+    COMPONENT_RECEIVER = 3
+    COMPONENT_ALL = 4
+    
     def __init__(self, project):
         self.prj = project
         self.exported = {} 
+        self.components = {}
     
-    def getComponentClasses(self, component='', exported=None):
+    def getComponentClasses(self, component, exported=None):
+        ClassAppendix = {
+            Helper.COMPONENT_ACTIVITY: "Activity",
+            Helper.COMPONENT_SERVICE: "Service",
+            Helper.COMPONENT_PROVIDER: "Provider",
+            Helper.COMPONENT_RECEIVER: "Receiver"
+        }
+        
+        assert component in ClassAppendix
+        
+        compname = ClassAppendix[component].lower()
         self.codeUnit = RuntimeProjectUtil.findUnitsByType(self.prj, ICodeUnit, False)[0]
         classes = self.codeUnit.getClasses()
         ret = []
         for cls in classes:
-            if component and not cls.getName(True).endswith(component):
+            name = cls.getName(True)
+            if component == Helper.COMPONENT_ALL:
+                if not re.match(r'.*(Activity|Service|Provider|Receiver)$', name):
+                    continue
+
+            elif not name.endswith(ClassAppendix[component]):
                 continue
             
             if exported == None:
                 ret.append(cls)
 
             elif exported == True:
-                if self.isComponentExported(component, cls):
+                if self.isComponentExported(compname, cls):
                     ret.append(cls)
 
-            elif not self.isComponentExported(component, cls):
+            elif not self.isComponentExported(compname, cls):
                 ret.append(cls)
         
         return ret
     
+    def checkManifest(self, component, cls):
+        if component not in self.components:
+            self.components[component] = self.getComponentNames(component)
+        
+        cls_name = self.getClassPath(cls)
+        return cls_name in self.components[component]
+
+    def checkExported(self, component, cls, expect):
+        res = self.isComponentExported(component, cls)
+        if expect:
+            return res
+        else:
+            return not res
+
     def isComponentExported(self, component, cls):
         component = component.lower()
         if component not in self.exported:
@@ -74,12 +111,17 @@ class Helper:
     def getExportedProviders(self):
         return self.getComponentNames('provider', True)
 
-    def getComponentNames(self, compType, exported):
+    def getComponentNames(self, compType, exported=None):
         comps = self.getComponent(compType)
         res = []
-        for comp in comps:
-            if comps[comp]['exported'] == exported:
+        
+        if exported == None:
+            for comp in comps:
                 res.append(comp)
+        else:
+            for comp in comps:
+                if comps[comp]['exported'] == exported:
+                    res.append(comp)
         return res
 
     def getComponent(self, component):

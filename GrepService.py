@@ -1,11 +1,8 @@
 from com.pnfsoftware.jeb.client.api import IScript, IGraphicalClientContext
 from com.pnfsoftware.jeb.core import RuntimeProjectUtil
 from com.pnfsoftware.jeb.core.actions import Actions, ActionContext, ActionXrefsData
-from com.pnfsoftware.jeb.core.units.code import ICodeUnit, ICodeItem
 from Utils import Helper
 
-
-config_show_exported = True
 
 class GrepService(IScript):
 
@@ -20,20 +17,18 @@ class GrepService(IScript):
       print('There is no opened project')
       return
 
-    self.prj = projects[0]
-    self.helper = Helper(self.prj)
+    prj = projects[0]
+    helper = Helper(prj)
 
-    self.codeUnit = RuntimeProjectUtil.findUnitsByType(self.prj, ICodeUnit, False)[0]
-    classes = self.codeUnit.getClasses()
+    print("exported".center(15, ' ').center(60, '-'))
+    exported = helper.getComponentClasses(Helper.COMPONENT_SERVICE, True)
+    for s in exported:
+        print(s.getAddress())
 
-    for cls in classes:
-        if not cls.getName(True).endswith('Service'):
-            continue
+    print("unexported".center(15, ' ').center(60, '-'))
+    unexported = helper.getComponentClasses(Helper.COMPONENT_SERVICE, False)
+    for s in unexported:
+        print(s.getAddress())
 
-        if config_show_exported:
-            if not self.helper.isServiceExported(cls):
-                continue
-        elif self.helper.isServiceExported(cls):
-            continue
-
-        print(cls.getAddress())
+    print("total %d services, %d exported" % (len(exported) + len(unexported), 
+                                             len(exported)))

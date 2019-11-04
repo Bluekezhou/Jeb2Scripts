@@ -4,9 +4,11 @@ from com.pnfsoftware.jeb.core.actions import Actions, ActionContext, ActionXrefs
 from com.pnfsoftware.jeb.core.units.code import ICodeUnit, ICodeItem
 from com.pnfsoftware.jeb.core.units import IXmlUnit
 from com.pnfsoftware.jeb.core.actions import ActionRenameData
+from Utils import Helper
 
-# Find in exported activities or not
-config_find_exported = False
+
+# show exported activities or not
+show_exported = False
 
 class FindGetIntentActivity(IScript):
 
@@ -22,6 +24,7 @@ class FindGetIntentActivity(IScript):
             return
 
         self.prj = projects[0]
+        self.helper = Helper(self.prj)
         print('Decompiling code units of %s...' % self.prj)
 
         self.codeUnit = RuntimeProjectUtil.findUnitsByType(self.prj, ICodeUnit, False)[0]
@@ -36,90 +39,88 @@ class FindGetIntentActivity(IScript):
 
             self.index2method[m.getIndex()] = m
 
-        activities = self.getActivityByExported(config_find_exported)
         def activity_filter(cls):
             name =cls.getName(True)
+            # if not name.endswith('Activity'):
             if not name.endswith('Activity'):
                 return False
             
-            path = self.getClassPath(cls)
-            return path in activities
+            if not self.helper.checkManifest('activity', cls):
+                return False
+
+            return self.helper.checkExported('activity', cls, show_exported)
 
         classes = filter(activity_filter, classes)
-        
+        intent_count = 0
+        webview_count = 0
         for cls in classes:
-            
             calls = self.findGetIntent(cls)
-            if calls:
-                for f in cls.getFields():
-                    fieldType = f.getFieldType().getName(True)
-                    if 'webview' in fieldType.lower():
-                        print(fieldType.center(len(fieldType) + 10, ' ').center(60, '-'))
-                        self.append_type(f, fieldType)
+            if not calls:
+                continue
+            
+            intent_count += 1
+            flag = False
+            for f in cls.getFields():
+                if not self.isSuperWebview(f):
+                    continue
 
-                for call in calls:
-                    print(call.getSignature(True))
+                fieldType = f.getFieldType().getName(True)
+                print(fieldType.center(len(fieldType) + 10, ' ').center(80, '-'))
+                print(f.getAddress())
+                if not flag:
+                    webview_count += 1
+                    flag = True
 
+            for call in calls:
+                print(call.getSignature(True))
+        
+        print("%d Activity contain intent, %d contain webview among them " % 
+              (intent_count, webview_count))
     
+    def isSuperWebview(self, field):
+        rootTypes = self.getRootSuperClass(field.getFieldType())
+        for t in rootTypes:
+            if t.getName(True) == 'WebView':
+                return True
+
+        return False
+
+    def getRootSuperClass(self, atype):
+        supers = self.getTypeSuperTypes(atype)
+        ret = []
+        
+        while supers:
+            curtype = supers.pop()
+            curtype_supers = self.getTypeSuperTypes(curtype)
+            if curtype_supers:
+                supers.extend(curtype_supers)
+            else:
+                ret.append(curtype)
+
+        return ret
+    
+    def getTypeSuperTypes(self, atype):
+        aclass = atype.getImplementingClass()
+        if not aclass:
+            return []
+        
+        return self.getClassSupertypes(aclass)
+
+    def getClassSupertypes(self, cls):
+        res = []
+        try:
+            supers = cls.getSupertypes()
+            res.extend(supers)
+        except Exception as e:
+            print(e)
+
+        return res
+
     def getClassPath(self, cls):
         sign = cls.getSignature(True)
         path = sign[1:-1]
         path = path.replace('/', '.')
         return path
-
-    def getActivityByExported(self, exported):
-        comps = self.getComponent('activity')
-        res = []
-        for comp in comps:
-            if comps[comp]['exported'] == exported:
-                res.append(comp)
-        return res
-
-    def getComponent(self, component):
-        doc = self.getTargetDoc(self.prj, "Manifest")
-        
-        root = doc.getElementsByTagName('manifest').item(0)
-        package = root.getAttribute('package')
-
-        elements = doc.getElementsByTagName(component)
-        components = {}
-        for i in range(elements.getLength()):
-            node = elements.item(i)
-            attr = {
-                'exported': self.toBoolean(node.getAttribute("android:exported"))
-            }
-            
-            name = node.getAttribute("android:name")
-            if name.startswith('.'):
-                name = package + name
-
-            components[name] = attr
-        
-        return components
-
-        # classes = self.codeUnit.getClasses()
-
-        # for cls in classes:
-        #     if cls.getName(True).endswith('Activity') and cls.getName(True) in names:
-        #         print(cls.getAddress())
-
-    def toBoolean(self, value):
-        if value == 'false':
-            return False
-        elif value == 'true':
-            return True
-        else:
-            return None
-
-    def getTargetDoc(self, prj, targetXML):
-        units = RuntimeProjectUtil.findUnitsByType(prj, IXmlUnit, False)
-        for unit in units:
-            if not unit.isProcessed():
-                unit.process()
-            if unit.getName() == targetXML:
-                doc = unit.getDocument()
-                return doc
-        return None       
 
     def findGetIntent(self, cls):
         methods = cls.getMethods()
