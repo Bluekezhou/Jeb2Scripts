@@ -4,7 +4,6 @@ from com.pnfsoftware.jeb.core.actions import Actions, ActionContext, ActionXrefs
 from com.pnfsoftware.jeb.core.units.code import ICodeUnit, ICodeItem
 from Utils import Helper
 
-config_show_exported = False
 
 class GrepReceiver(IScript):
 
@@ -20,20 +19,18 @@ class GrepReceiver(IScript):
             return
 
         prj = projects[0]
-        self.helper = Helper(prj)
-        print('Decompiling code units of %s...' % prj)
+        helper = Helper(prj)
 
-        self.codeUnit = RuntimeProjectUtil.findUnitsByType(prj, ICodeUnit, False)[0]
-        classes = self.codeUnit.getClasses()
+        print("exported".center(15, ' ').center(60, '-'))
+        exported = helper.getComponentClasses(Helper.COMPONENT_RECEIVER, True)
+        for s in exported:
+            print(s.getAddress())
 
-        for cls in classes:
-            if not cls.getName(True).endswith('Receiver'):
-                continue
+        print("")
+        print("unexported".center(15, ' ').center(60, '-'))
+        unexported = helper.getComponentClasses(Helper.COMPONENT_RECEIVER, False)
+        for s in unexported:
+            print(s.getAddress())
 
-            if config_show_exported:
-                if not self.helper.isReceiverExported(cls):
-                    continue
-            elif self.helper.isReceiverExported(cls):
-                continue
-            
-            print(cls.getAddress())
+        print("total %d receiver, %d exported" % (len(exported) + len(unexported), 
+                                             len(exported)))

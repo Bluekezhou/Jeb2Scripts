@@ -29,7 +29,6 @@ class Helper:
         
         assert component in ClassAppendix
         
-        compname = ClassAppendix[component].lower()
         self.codeUnit = RuntimeProjectUtil.findUnitsByType(self.prj, ICodeUnit, False)[0]
         classes = self.codeUnit.getClasses()
         ret = []
@@ -38,10 +37,19 @@ class Helper:
             if component == Helper.COMPONENT_ALL:
                 if not re.match(r'.*(Activity|Service|Provider|Receiver)$', name):
                     continue
+                else:
+                    # get component type
+                    pass
 
             elif not name.endswith(ClassAppendix[component]):
                 continue
+
+            else:
+                compname = ClassAppendix[component].lower()
             
+            if not self.checkManifest(compname, cls):
+                continue
+
             if exported == None:
                 ret.append(cls)
 
