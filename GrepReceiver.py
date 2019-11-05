@@ -8,6 +8,7 @@ from Utils import Helper
 class GrepReceiver(IScript):
 
     def run(self, ctx):
+        print("Running Script " + self.__class__.__name__)
         engctx = ctx.getEnginesContext()
         if not engctx:
             print('Back-end engines not initialized')

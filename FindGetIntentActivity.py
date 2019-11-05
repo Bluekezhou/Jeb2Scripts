@@ -13,6 +13,7 @@ show_exported = False
 class FindGetIntentActivity(IScript):
 
     def run(self, ctx):
+        print("Running Script " + self.__class__.__name__)
         engctx = ctx.getEnginesContext()
         if not engctx:
             print('Back-end engines not initialized')
@@ -74,8 +75,8 @@ class FindGetIntentActivity(IScript):
             for call in calls:
                 print(call.getSignature(True))
         
-        print("%d Activity contain intent, %d contain webview among them " % 
-              (intent_count, webview_count))
+        print("total Activity %d, %d Activity contain intent, %d of them contain WebView" % 
+              (len(classes), intent_count, webview_count))
     
     def isSuperWebview(self, field):
         rootTypes = self.getRootSuperClass(field.getFieldType())
@@ -99,6 +100,23 @@ class FindGetIntentActivity(IScript):
 
         return ret
     
+    def getSuperClassTypes(self, aClass):
+        ret = []
+        
+        supers = self.getClassSupertypes(aClass)
+        if supers:
+            curType = supers[0]
+
+        while True:
+            ret.append(curType)
+            curType_supers = self.getTypeSuperTypes(curType)
+            if not curType_supers:
+                break
+
+            curType = curType_supers[0]
+
+        return ret
+
     def getTypeSuperTypes(self, atype):
         aclass = atype.getImplementingClass()
         if not aclass:
